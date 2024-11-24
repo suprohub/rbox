@@ -1,4 +1,4 @@
-max-ping = 250
+max-ping = 150
 repeats = 20
 sources = [
     #["https://raw.githubusercontent.com/suprohub/rbox/refs/heads/main/result/best_subscribition_by_rbox.txt"],

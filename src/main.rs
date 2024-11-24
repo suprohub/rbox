@@ -262,6 +262,12 @@ async fn ping_proto(client: Client, url: String, timeout: u16) -> Result<u16, As
                 //println!("{:?}", err);
                 if !err.is_timeout() {
                     Ok(time.elapsed().as_millis() as u16)
+                } else if let Some(status) = err.status() {
+                    if status.as_u16() > 400 {
+                        Err(Box::new(err))
+                    } else {
+                        Ok(time.elapsed().as_millis() as u16) 
+                    }
                 } else {
                     Err(Box::new(err))
                 }
