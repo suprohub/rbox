@@ -1,13 +1,14 @@
 use std::{
     collections::HashMap,
+    error::Error,
     fs::{self, File},
     io::{self, Write},
-    net::{SocketAddr, TcpStream, ToSocketAddrs},
     sync::Arc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use base64::Engine;
+use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::Mutex;
@@ -24,17 +25,19 @@ pub struct Sources {
 
 #[tokio::main]
 async fn main() {
-    simple_logger::init().unwrap();
+    simple_logger::init_with_level(log::Level::Info).unwrap();
     log::info!("Start creating best proxy list...");
 
     let sources: Sources = toml::from_str(&fs::read_to_string("sources.toml").unwrap()).unwrap();
     let map = Arc::new(Mutex::new(HashMap::new()));
+    let client = Client::new();
     let mut tasks = Vec::new();
 
     for source in sources.sources {
         let map_clone = map.clone();
         tasks.push(tokio::spawn(check_sub(
             map_clone,
+            client.clone(),
             source[0].clone(),
             source
                 .get(1)
@@ -66,7 +69,7 @@ async fn main() {
 
     fs::remove_dir_all("result").unwrap();
     fs::create_dir("result").unwrap();
-    
+
     let mut subs = File::create("result/best_subscribition_by_rbox.txt").unwrap();
     let mut pings = File::create("result/pings.txt").unwrap();
     for (sub, ping) in sorted {
@@ -81,6 +84,7 @@ async fn main() {
 
 async fn check_sub(
     map: Arc<Mutex<HashMap<String, u16>>>,
+    client: Client,
     url: String,
     timeout: u16,
     repeats: u8,
@@ -102,7 +106,10 @@ async fn check_sub(
             count = 0;
             let mut tasks = Vec::new();
             for sub in subs.lines() {
-                tasks.push((sub, tokio::spawn(ping_proto(sub.to_string(), timeout))));
+                tasks.push((
+                    sub,
+                    tokio::spawn(ping_proto(client.clone(), sub.to_string(), timeout)),
+                ));
             }
 
             log::info!(
@@ -131,7 +138,10 @@ async fn check_sub(
     } else {
         let mut tasks = Vec::new();
         for sub in subs.lines() {
-            tasks.push((sub, tokio::spawn(ping_proto(sub.to_string(), timeout))));
+            tasks.push((
+                sub,
+                tokio::spawn(ping_proto(client.clone(), sub.to_string(), timeout)),
+            ));
         }
 
         log::info!("Tasks created in subscribition {} with no repeats", url);
@@ -149,7 +159,7 @@ async fn check_sub(
     Ok(())
 }
 
-async fn ping_proto(url: String, timeout: u16) -> Result<u16, AsyncError> {
+async fn ping_proto(client: Client, url: String, timeout: u16) -> Result<u16, AsyncError> {
     let ping = match url {
         _ if url.starts_with("ss://")
             || url.starts_with("trojan://")
@@ -221,11 +231,29 @@ async fn ping_proto(url: String, timeout: u16) -> Result<u16, AsyncError> {
         }
     };
 
-    let time = Instant::now();
-    TcpStream::connect_timeout(
+    if !ping.starts_with("127.0.0.1") {
+        let time = Instant::now();
+        match client
+            .get("http://".to_string() + &ping)
+            .timeout(Duration::from_millis(timeout.into()))
+            .send()
+            .await
+        {
+            Ok(_) => Ok(time.elapsed().as_millis() as u16),
+            Err(err) => {
+                //println!("{:?}", err);
+                if !err.is_timeout() {
+                    Ok(time.elapsed().as_millis() as u16)
+                } else {
+                    Err(Box::new(err))
+                }
+            },
+        }
+    } else {
+        Err(Box::new(io::Error::new(io::ErrorKind::AddrInUse, "bruh its local host bro")))
+    }
+    /*TcpStream::connect_timeout(
         &ping.to_socket_addrs()?.collect::<Vec<SocketAddr>>()[0],
         Duration::from_millis(timeout.into()),
-    )?;
-
-    Ok(time.elapsed().as_millis() as u16)
+    )?;*/
 }
