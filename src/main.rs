@@ -102,7 +102,30 @@ async fn check_sub(
     if repeats > 1 {
         let mut result: HashMap<&str, Vec<u16>> = HashMap::new();
 
-        for repeat in 1..repeats + 1 {
+        count = 0;
+        let mut tasks = Vec::new();
+        for sub in subs.lines() {
+            tasks.push((
+                sub,
+                tokio::spawn(ping_proto(client.clone(), sub.to_string(), timeout)),
+            ));
+        }
+
+        log::info!(
+            "Tasks created in subscribition {} with repeat 1",
+            url,
+        );
+        for (sub, task) in tasks {
+            //log::info!("proxy number {count}/{len} repeat {repeat}");
+            let mut vec = Vec::new();
+            if let Ok(ping) = task.await? {
+                vec.push(ping);
+            }
+            result.insert(sub, vec);
+            count += 1;
+        }
+
+        for repeat in 2..repeats + 1 {
             count = 0;
             let mut tasks = Vec::new();
             for sub in subs.lines() {
@@ -118,22 +141,21 @@ async fn check_sub(
                 repeat
             );
             for (sub, task) in tasks {
-                log::info!("proxy number {count}/{len} repeat {repeat}");
+                //log::info!("proxy number {count}/{len} repeat {repeat}");
                 if let Ok(ping) = task.await? {
-                    result
-                        .entry(sub)
-                        .and_modify(|pings| pings.push(ping))
-                        .or_insert(Vec::new());
+                    result.get_mut(sub).unwrap().push(ping);
+                    count += 1;
                 }
-                count += 1;
             }
         }
 
-        map.lock().await.extend(result.into_iter().map(|val| {
-            (
-                val.0.to_string(),
-                (val.1.iter().sum::<u16>() as f32 / val.1.len() as f32).round() as u16,
-            )
+        map.lock().await.extend(result.into_iter()
+            .filter(|val| val.1.len() > 0)
+            .map(|val| {
+                (
+                    val.0.to_string(),
+                    (val.1.iter().sum::<u16>() as f32 / val.1.len() as f32).round() as u16
+                )
         }));
     } else {
         let mut tasks = Vec::new();
