@@ -1,0 +1,6 @@
+max-ping = 50
+repeats = 5
+sources = [
+    ["https://raw.githubusercontent.com/OP1MINEL/v2ray-configs2/refs/heads/main/All_Configs_Sub.txt"],
+    ["https://raw.githubusercontent.com/barry-far/V2ray-Configs/refs/heads/main/All_Configs_Sub.txt"]
+]
