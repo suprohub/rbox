@@ -111,12 +111,9 @@ async fn check_sub(
             ));
         }
 
-        log::info!(
-            "Tasks created in subscribition {} with repeat 1",
-            url,
-        );
+        log::info!("Tasks created in subscribition {} with repeat 1", url,);
         for (sub, task) in tasks {
-            //log::info!("proxy number {count}/{len} repeat {repeat}");
+            log::info!("proxy number {count}/{len} repeat 1");
             let mut vec = Vec::new();
             if let Ok(ping) = task.await? {
                 vec.push(ping);
@@ -141,7 +138,7 @@ async fn check_sub(
                 repeat
             );
             for (sub, task) in tasks {
-                //log::info!("proxy number {count}/{len} repeat {repeat}");
+                log::info!("proxy number {count}/{len} repeat {repeat}");
                 if let Ok(ping) = task.await? {
                     result.get_mut(sub).unwrap().push(ping);
                     count += 1;
@@ -149,14 +146,14 @@ async fn check_sub(
             }
         }
 
-        map.lock().await.extend(result.into_iter()
-            .filter(|val| val.1.len() > 0)
-            .map(|val| {
+        map.lock()
+            .await
+            .extend(result.into_iter().filter(|val| val.1.len() > 0).map(|val| {
                 (
                     val.0.to_string(),
-                    (val.1.iter().sum::<u16>() as f32 / val.1.len() as f32).round() as u16
+                    (val.1.iter().sum::<u16>() as f32 / val.1.len() as f32).round() as u16,
                 )
-        }));
+            }));
     } else {
         let mut tasks = Vec::new();
         for sub in subs.lines() {
@@ -245,7 +242,6 @@ async fn ping_proto(client: Client, url: String, timeout: u16) -> Result<u16, As
             addr
         }
         _ => {
-            println!("unknown {}", url);
             return Err(Box::new(io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
                 "unknown proto",
@@ -269,10 +265,13 @@ async fn ping_proto(client: Client, url: String, timeout: u16) -> Result<u16, As
                 } else {
                     Err(Box::new(err))
                 }
-            },
+            }
         }
     } else {
-        Err(Box::new(io::Error::new(io::ErrorKind::AddrInUse, "bruh its local host bro")))
+        Err(Box::new(io::Error::new(
+            io::ErrorKind::AddrInUse,
+            "bruh its local host bro",
+        )))
     }
     /*TcpStream::connect_timeout(
         &ping.to_socket_addrs()?.collect::<Vec<SocketAddr>>()[0],
