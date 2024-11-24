@@ -1,5 +1,5 @@
 max-ping = 150
-repeats = 20
+repeats = 25
 sources = [
     #["https://raw.githubusercontent.com/suprohub/rbox/refs/heads/main/result/best_subscribition_by_rbox.txt"],
     ["https://raw.githubusercontent.com/OP1MINEL/v2ray-configs2/refs/heads/main/All_Configs_Sub.txt"],
